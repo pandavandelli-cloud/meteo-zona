@@ -223,17 +223,27 @@ for i in range(5):
     </div>
     """
 
-# 5. GENERAZIONE PAGINA WEB (index.html)
+# Icona vettoriale integrata per iPhone/Android (sole e nuvola su sfondo blu)
+icona_app_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%231e3a8a'/%3E%3Ccircle cx='70' cy='72' r='30' fill='%23facc15'/%3E%3Cpath d='M125 125H62c-15 0-27-11-27-26 0-13 10-24 23-26 5-16 20-27 37-27 21 0 38 17 38 38 0 2 0 4-1 6 11 3 19 13 19 25 0 14-12 26-26 26z' fill='%23ffffff'/%3E%3C/svg%3E"
+
+# 5. GENERAZIONE PAGINA WEB (index.html) CON SUPPORTO WEB APP
 html_content = f"""<!DOCTYPE html>
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Meteo Scandiano">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#1e3a8a">
+    <link rel="apple-touch-icon" href="{icona_app_svg}">
+    <link rel="icon" type="image/svg+xml" href="{icona_app_svg}">
     <title>Meteo {NOME_ZONA}</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * {{ box-sizing: border-box; }}
-        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #eef2f6; color: #1e293b; margin: 0; padding: 12px; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #eef2f6; color: #1e293b; margin: 0; padding: 12px; padding-top: env(safe-area-inset-top, 12px); }}
         .container {{ max-width: 820px; margin: 0 auto; }}
         
         /* Intestazione Hero compatta */
@@ -415,4 +425,4 @@ html_content = f"""<!DOCTYPE html>
 
 with open("index.html", "w", encoding="utf-8") as f:
   f.write(html_content)
-print("Dashboard friendly compatta aggiornata con successo!")
+print("Dashboard Web App aggiornata con successo!")
