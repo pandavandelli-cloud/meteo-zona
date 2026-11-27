@@ -56,7 +56,7 @@ reale_pioggia = res_p["daily"]["precipitation_sum"][idx_ieri]
 # 3. GESTIONE ARCHIVIO STORICO E CALCOLO PRECISIONE
 nuova_riga = {
     "data_previsione": oggi,
-    "target_data": daily["time"][1],  # Previsione fatta oggi per domani
+    "target_data": daily["time"][1],
     "ecmwf_tmax": daily["temperature_2m_max_ecmwf_ifs025"][1],
     "gfs_tmax": daily["temperature_2m_max_gfs_seamless"][1],
     "icon_tmax": daily["temperature_2m_max_icon_seamless"][1],
@@ -71,11 +71,9 @@ if os.path.exists(STORICO_FILE):
 else:
   df_storico = pd.DataFrame(columns=nuova_riga.keys())
 
-# Aggiorna il dato reale di ieri se avevamo salvato una previsione per ieri
 if ieri in df_storico["target_data"].values:
   df_storico.loc[df_storico["target_data"] == ieri, "reale_tmax"] = reale_tmax
 
-# Aggiungi la previsione di oggi (evitando duplicati se eseguito più volte nello stesso giorno)
 df_storico = df_storico[df_storico["data_previsione"] != oggi]
 df_storico = pd.concat(
     [df_storico, pd.DataFrame([nuova_riga])], ignore_index=True
@@ -88,7 +86,6 @@ if len(verificati) > 0:
   err_ecmwf = (verificati["ecmwf_tmax"] - verificati["reale_tmax"]).abs().mean()
   err_gfs = (verificati["gfs_tmax"] - verificati["reale_tmax"]).abs().mean()
   err_icon = (verificati["icon_tmax"] - verificati["reale_tmax"]).abs().mean()
-  # Converte l'errore medio in un punteggio percentuale intuitivo
   score_ecmwf = max(0, round(100 - (err_ecmwf * 10)))
   score_gfs = max(0, round(100 - (err_gfs * 10)))
   score_icon = max(0, round(100 - (err_icon * 10)))
@@ -127,6 +124,24 @@ ecmwf_48 = hourly["temperature_2m_ecmwf_ifs025"][:48]
 gfs_48 = hourly["temperature_2m_gfs_seamless"][:48]
 icon_48 = hourly["temperature_2m_icon_seamless"][:48]
 
+# Costruzione righe tabella 5 giorni (Min / Max)
+righe_tabella = ""
+for i in range(5):
+  data_g = daily["time"][i][5:]
+  ecmwf_str = f"{daily['temperature_2m_min_ecmwf_ifs025'][i]}° / {daily['temperature_2m_max_ecmwf_ifs025'][i]}°"
+  gfs_str = f"{daily['temperature_2m_min_gfs_seamless'][i]}° / {daily['temperature_2m_max_gfs_seamless'][i]}°"
+  icon_str = f"{daily['temperature_2m_min_icon_seamless'][i]}° / {daily['temperature_2m_max_icon_seamless'][i]}°"
+  pioggia_m = round(
+      (
+          daily["precipitation_sum_ecmwf_ifs025"][i]
+          + daily["precipitation_sum_gfs_seamless"][i]
+          + daily["precipitation_sum_icon_seamless"][i]
+      )
+      / 3,
+      1,
+  )
+  righe_tabella += f"<tr><td><strong>{data_g}</strong></td><td>{ecmwf_str}</td><td>{gfs_str}</td><td>{icon_str}</td><td>{pioggia_m} mm</td></tr>"
+
 # 5. GENERAZIONE PAGINA WEB (index.html)
 html_content = f"""<!DOCTYPE html>
 <html lang="it">
@@ -141,13 +156,14 @@ html_content = f"""<!DOCTYPE html>
         .header {{ text-align: center; margin-bottom: 20px; }}
         .header h1 {{ margin: 0; font-size: 1.5rem; color: #0f172a; }}
         .header p {{ margin: 4px 0 0; font-size: 0.85rem; color: #64748b; }}
-        .card {{ background: white; border-radius: 16px; padding: 20px; margin-bottom: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }}
+        .card {{ background: white; border-radius: 16px; padding: 20px; margin-bottom: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow-x: auto; }}
         .card h2 {{ margin-top: 0; font-size: 1.1rem; color: #334155; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }}
-        .oggi-grid {{ display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }}
-        .temp-big {{ font-size: 2rem; font-weight: bold; color: #0f172a; }}
+        .oggi-grid {{ display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 12px; }}
+        .temp-big {{ font-size: 1.8rem; font-weight: bold; color: #0f172a; }}
         .badge {{ padding: 8px 14px; border-radius: 999px; color: white; font-weight: bold; font-size: 0.9rem; background: {aff_colore}; }}
-        .table-days {{ width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }}
-        .table-days th, .table-days td {{ padding: 8px; text-align: center; border-bottom: 1px solid #f1f5f9; }}
+        .table-days {{ width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.88rem; min-width: 450px; }}
+        .table-days th, .table-days td {{ padding: 10px 6px; text-align: center; border-bottom: 1px solid #f1f5f9; }}
+        .table-days th {{ background: #f8fafc; color: #475569; }}
         .pagella {{ background: #f8fafc; border-left: 4px solid #3b82f6; padding: 12px; border-radius: 8px; font-size: 0.95rem; }}
     </style>
 </head>
@@ -159,14 +175,14 @@ html_content = f"""<!DOCTYPE html>
     </div>
 
     <div class="card">
-        <h2>PREVISIONE DI OGGI E PROSSIMI 4 GIORNI</h2>
+        <h2>PREVISIONE OGGI E PROSSIMI 4 GIORNI (Min / Max)</h2>
         <div class="oggi-grid">
-            <div class="temp-big">Min {round(sum(tmin_oggi)/3, 1)}°C / Max {round(sum(tmax_oggi)/3, 1)}°C</div>
+            <div class="temp-big">Oggi: {round(sum(tmin_oggi)/3, 1)}° / {round(sum(tmax_oggi)/3, 1)}°C</div>
             <div class="badge">Affidabilità: {aff_testo}</div>
         </div>
         <table class="table-days">
-            <tr><th>Giorno</th><th>ECMWF (Max)</th><th>GFS (Max)</th><th>ICON (Max)</th><th>Pioggia Media</th></tr>
-            {"".join([f"<tr><td>{daily['time'][i][5:]}</td><td>{daily['temperature_2m_max_ecmwf_ifs025'][i]}°</td><td>{daily['temperature_2m_max_gfs_seamless'][i]}°</td><td>{daily['temperature_2m_max_icon_seamless'][i]}°</td><td>{round((daily['precipitation_sum_ecmwf_ifs025'][i]+daily['precipitation_sum_gfs_seamless'][i]+daily['precipitation_sum_icon_seamless'][i])/3, 1)} mm</td></tr>" for i in range(5)])}
+            <tr><th>Giorno</th><th>ECMWF (Min/Max)</th><th>GFS (Min/Max)</th><th>ICON (Min/Max)</th><th>Pioggia Media</th></tr>
+            {righe_tabella}
         </table>
     </div>
 
