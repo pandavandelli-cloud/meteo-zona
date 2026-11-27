@@ -13,8 +13,10 @@
         .header p { margin: 4px 0 0; font-size: 0.85rem; color: #64748b; }
         .card { background: white; border-radius: 16px; padding: 20px; margin-bottom: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow-x: auto; }
         .card h2 { margin-top: 0; font-size: 1.1rem; color: #334155; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
-        .oggi-grid { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 12px; }
-        .temp-big { font-size: 1.5rem; font-weight: bold; color: #0f172a; }
+        .oggi-grid { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 14px; }
+        .temp-reale { font-size: 2rem; font-weight: bold; color: #0f172a; }
+        .temp-sub { font-size: 0.95rem; color: #475569; margin-top: 4px; }
+        .live-tag { display: inline-block; background: #dbeafe; color: #1d4ed8; font-size: 0.75rem; font-weight: bold; padding: 2px 8px; border-radius: 6px; vertical-align: middle; margin-left: 6px; }
         .badge { padding: 8px 14px; border-radius: 999px; color: white; font-weight: bold; font-size: 0.9rem; background: #22c55e; }
         .table-days { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.88rem; min-width: 500px; }
         .table-days th, .table-days td { padding: 10px 6px; text-align: center; border-bottom: 1px solid #f1f5f9; }
@@ -26,13 +28,16 @@
 <div class="container">
     <div class="header">
         <h1>METEO SCANDIANO & ZONA</h1>
-        <p>Aggiornato il 27/11/2026 alle 11:33</p>
+        <p>Modelli aggiornati il 27/11/2026 alle 11:42 | Dato attuale: <span id="ora-live">caricamento...</span></p>
     </div>
 
     <div class="card">
-        <h2>PREVISIONE OGGI E PROSSIMI 4 GIORNI</h2>
+        <h2>SITUAZIONE IN TEMPO REALE E PROSSIMI 4 GIORNI</h2>
         <div class="oggi-grid">
-            <div class="temp-big">Oggi: 🌦️ Pioviggine | 6.4° / 9.2°C</div>
+            <div>
+                <div class="temp-reale"><span id="temp-live">--°C</span> <span id="tempo-live">...</span> <span class="live-tag">LIVE</span></div>
+                <div class="temp-sub">Estremi previsti oggi: Min 6.4°C / Max 9.2°C | Umidità attuale: <span id="umidita-live">--</span>%</div>
+            </div>
             <div class="badge">Affidabilità: ALTA (Modelli concordi)</div>
         </div>
         <table class="table-days">
@@ -63,6 +68,34 @@
 </div>
 
 <script>
+    // 1. AGGIORNAMENTO IN TEMPO REALE ALL'APERTURA DELLA PAGINA
+    function descriviCodiceLive(c) {
+        if (c === 0) return "☀️ Sereno";
+        if (c === 1 || c === 2) return "⛅ Poco nuvoloso";
+        if (c === 3) return "☁️ Nuvoloso";
+        if (c === 45 || c === 48) return "🌫️ Nebbia";
+        if ([51,53,55,56,57].includes(c)) return "🌦️ Pioviggine";
+        if ([61,63,65,66,67,80,81,82].includes(c)) return "🌧️ Pioggia";
+        if ([71,73,75,77,85,86].includes(c)) return "❄️ Neve";
+        if ([95,96,99].includes(c)) return "⛈️ Temporale";
+        return "🌤️ Variabile";
+    }
+
+    fetch("https://api.open-meteo.com/v1/forecast?latitude=44.598&longitude=10.695&current=temperature_2m,relative_humidity_2m,weather_code&timezone=Europe%2FRome")
+        .then(r => r.json())
+        .then(data => {
+            const cur = data.current;
+            document.getElementById("temp-live").textContent = cur.temperature_2m + "°C";
+            document.getElementById("tempo-live").textContent = "(" + descriviCodiceLive(cur.weather_code) + ")";
+            document.getElementById("umidita-live").textContent = cur.relative_humidity_2m;
+            const ora = cur.time.split("T")[1];
+            document.getElementById("ora-live").textContent = "rilevato alle " + ora;
+        })
+        .catch(() => {
+            document.getElementById("ora-live").textContent = "non disponibile";
+        });
+
+    // 2. GRAFICO CONFRONTO MODELLI
     const ctx = document.getElementById('meteoChart').getContext('2d');
     new Chart(ctx, {
         type: 'line',
