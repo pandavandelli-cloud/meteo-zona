@@ -10,7 +10,7 @@ LAT = 44.598
 LON = 10.695
 STORICO_FILE = "storico_meteo.csv"
 
-# 1. SCARICA PREVISIONI (Oggi + 3 giorni)
+# 1. SCARICA PREVISIONI (Oggi + 4 giorni = 5 giorni totali)
 url_forecast = "https://api.open-meteo.com/v1/forecast"
 params_forecast = {
     "latitude": LAT,
@@ -23,7 +23,7 @@ params_forecast = {
     "hourly": ["temperature_2m", "precipitation"],
     "models": ["ecmwf_ifs025", "gfs_seamless", "icon_seamless"],
     "timezone": "Europe/Rome",
-    "forecast_days": 4,
+    "forecast_days": 5,
 }
 res_f = requests.get(url_forecast, params=params_forecast).json()
 daily = res_f["daily"]
@@ -159,14 +159,14 @@ html_content = f"""<!DOCTYPE html>
     </div>
 
     <div class="card">
-        <h2>PREVISIONE DI OGGI</h2>
+        <h2>PREVISIONE DI OGGI E PROSSIMI 4 GIORNI</h2>
         <div class="oggi-grid">
             <div class="temp-big">Min {round(sum(tmin_oggi)/3, 1)}°C / Max {round(sum(tmax_oggi)/3, 1)}°C</div>
             <div class="badge">Affidabilità: {aff_testo}</div>
         </div>
         <table class="table-days">
             <tr><th>Giorno</th><th>ECMWF (Max)</th><th>GFS (Max)</th><th>ICON (Max)</th><th>Pioggia Media</th></tr>
-            {"".join([f"<tr><td>{daily['time'][i][5:]}</td><td>{daily['temperature_2m_max_ecmwf_ifs025'][i]}°</td><td>{daily['temperature_2m_max_gfs_seamless'][i]}°</td><td>{daily['temperature_2m_max_icon_seamless'][i]}°</td><td>{round((daily['precipitation_sum_ecmwf_ifs025'][i]+daily['precipitation_sum_gfs_seamless'][i]+daily['precipitation_sum_icon_seamless'][i])/3, 1)} mm</td></tr>" for i in range(4)])}
+            {"".join([f"<tr><td>{daily['time'][i][5:]}</td><td>{daily['temperature_2m_max_ecmwf_ifs025'][i]}°</td><td>{daily['temperature_2m_max_gfs_seamless'][i]}°</td><td>{daily['temperature_2m_max_icon_seamless'][i]}°</td><td>{round((daily['precipitation_sum_ecmwf_ifs025'][i]+daily['precipitation_sum_gfs_seamless'][i]+daily['precipitation_sum_icon_seamless'][i])/3, 1)} mm</td></tr>" for i in range(5)])}
         </table>
     </div>
 
