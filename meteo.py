@@ -172,7 +172,7 @@ ecmwf_48 = hourly["temperature_2m_ecmwf_ifs025"][:48]
 gfs_48 = hourly["temperature_2m_gfs_seamless"][:48]
 icon_48 = hourly["temperature_2m_icon_seamless"][:48]
 
-# Costruzione schede 5 giorni (molto più leggibili su telefono e PC)
+# Costruzione schede 5 giorni
 cards_giorni = ""
 for i in range(5):
   titolo_g = formatta_giorno(daily["time"][i], i)
@@ -233,61 +233,61 @@ html_content = f"""<!DOCTYPE html>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * {{ box-sizing: border-box; }}
-        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #eef2f6; color: #1e293b; margin: 0; padding: 14px; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #eef2f6; color: #1e293b; margin: 0; padding: 12px; }}
         .container {{ max-width: 820px; margin: 0 auto; }}
         
-        /* Intestazione Hero */
-        .hero {{ background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; border-radius: 20px; padding: 22px; margin-bottom: 16px; box-shadow: 0 10px 20px -5px rgba(30, 58, 138, 0.3); }}
-        .hero-top {{ display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; }}
-        .hero h1 {{ margin: 0; font-size: 1.35rem; letter-spacing: 0.5px; }}
-        .hero-time {{ font-size: 0.8rem; opacity: 0.85; margin-top: 4px; }}
-        .live-badge {{ background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 99px; font-size: 0.78rem; font-weight: 600; }}
+        /* Intestazione Hero compatta */
+        .hero {{ background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; border-radius: 16px; padding: 14px 18px; margin-bottom: 14px; box-shadow: 0 6px 14px -4px rgba(30, 58, 138, 0.25); }}
+        .hero-top {{ display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 8px; }}
+        .hero h1 {{ margin: 0; font-size: 1.1rem; letter-spacing: 0.3px; }}
+        .hero-time {{ font-size: 0.75rem; opacity: 0.85; }}
+        .live-badge {{ background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 99px; font-size: 0.7rem; font-weight: 600; }}
         
-        .hero-main {{ display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-top: 18px; }}
-        .now-temp-box {{ display: flex; align-items: center; gap: 14px; }}
-        .now-icon {{ font-size: 3.2rem; line-height: 1; }}
-        .now-temp {{ font-size: 3rem; font-weight: 800; line-height: 1; }}
-        .now-desc {{ font-size: 1rem; opacity: 0.95; margin-top: 4px; }}
-        .hero-stats {{ background: rgba(255,255,255,0.12); padding: 12px 16px; border-radius: 14px; font-size: 0.9rem; line-height: 1.5; }}
-        .aff-pill {{ display: inline-block; background: {aff_bg}; padding: 4px 10px; border-radius: 8px; font-weight: 600; margin-top: 4px; }}
+        .hero-main {{ display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 10px; }}
+        .now-temp-box {{ display: flex; align-items: center; gap: 10px; }}
+        .now-icon {{ font-size: 2.2rem; line-height: 1; }}
+        .now-temp {{ font-size: 2rem; font-weight: 800; line-height: 1; }}
+        .now-desc {{ font-size: 0.88rem; opacity: 0.95; margin-top: 2px; }}
+        .hero-stats {{ background: rgba(255,255,255,0.12); padding: 8px 12px; border-radius: 10px; font-size: 0.8rem; line-height: 1.4; }}
+        .aff-pill {{ display: inline-block; background: {aff_bg}; padding: 2px 8px; border-radius: 6px; font-weight: 600; margin-top: 3px; font-size: 0.75rem; }}
 
         /* Schede generali */
-        .card {{ background: white; border-radius: 18px; padding: 18px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }}
-        .card h2 {{ margin: 0 0 14px; font-size: 1.05rem; color: #334155; display: flex; align-items: center; justify-content: space-between; }}
+        .card {{ background: white; border-radius: 16px; padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }}
+        .card h2 {{ margin: 0 0 12px; font-size: 1rem; color: #334155; display: flex; align-items: center; justify-content: space-between; }}
 
         /* Scorrimento orario stile app */
-        .hourly-scroll {{ display: flex; gap: 10px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: thin; }}
-        .hour-card {{ min-width: 78px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 10px 6px; text-align: center; flex-shrink: 0; }}
-        .hour-time {{ font-size: 0.8rem; font-weight: 700; color: #475569; }}
-        .hour-icon {{ font-size: 1.5rem; margin: 6px 0; }}
-        .hour-temp {{ font-size: 1.05rem; font-weight: 800; color: #0f172a; }}
-        .hour-rain {{ font-size: 0.72rem; color: #0284c7; font-weight: 600; margin-top: 4px; min-height: 14px; }}
-        .hour-wind {{ font-size: 0.7rem; color: #64748b; margin-top: 2px; }}
+        .hourly-scroll {{ display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }}
+        .hour-card {{ min-width: 72px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 8px 4px; text-align: center; flex-shrink: 0; }}
+        .hour-time {{ font-size: 0.78rem; font-weight: 700; color: #475569; }}
+        .hour-icon {{ font-size: 1.35rem; margin: 4px 0; }}
+        .hour-temp {{ font-size: 1rem; font-weight: 800; color: #0f172a; }}
+        .hour-rain {{ font-size: 0.7rem; color: #0284c7; font-weight: 600; margin-top: 3px; min-height: 13px; }}
+        .hour-wind {{ font-size: 0.68rem; color: #64748b; margin-top: 2px; }}
 
         /* Lista 5 giorni friendly */
-        .day-row {{ display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f1f5f9; }}
+        .day-row {{ display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f1f5f9; }}
         .day-row:last-child {{ border-bottom: none; padding-bottom: 0; }}
-        .day-left {{ display: flex; align-items: center; gap: 12px; min-width: 190px; }}
-        .day-icon {{ font-size: 2rem; width: 38px; text-align: center; }}
-        .day-name {{ font-weight: 700; font-size: 1rem; color: #0f172a; }}
-        .sub-date {{ font-weight: 400; color: #64748b; font-size: 0.85rem; }}
-        .day-desc {{ font-size: 0.82rem; color: #475569; margin-top: 2px; }}
-        .rain-pill {{ background: #f1f5f9; color: #64748b; padding: 2px 7px; border-radius: 6px; font-size: 0.75rem; }}
+        .day-left {{ display: flex; align-items: center; gap: 10px; min-width: 185px; }}
+        .day-icon {{ font-size: 1.8rem; width: 34px; text-align: center; }}
+        .day-name {{ font-weight: 700; font-size: 0.95rem; color: #0f172a; }}
+        .sub-date {{ font-weight: 400; color: #64748b; font-size: 0.82rem; }}
+        .day-desc {{ font-size: 0.8rem; color: #475569; margin-top: 2px; }}
+        .rain-pill {{ background: #f1f5f9; color: #64748b; padding: 2px 6px; border-radius: 6px; font-size: 0.72rem; }}
         .rain-pill.active {{ background: #e0f2fe; color: #0369a1; font-weight: 600; }}
 
-        .day-models {{ display: flex; gap: 8px; flex-wrap: wrap; }}
-        .mod-box {{ background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 6px 10px; text-align: center; font-size: 0.85rem; min-width: 82px; }}
-        .mod-lbl {{ display: block; font-size: 0.68rem; font-weight: 700; color: #64748b; letter-spacing: 0.4px; margin-bottom: 2px; }}
+        .day-models {{ display: flex; gap: 6px; flex-wrap: wrap; }}
+        .mod-box {{ background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 5px 8px; text-align: center; font-size: 0.82rem; min-width: 78px; }}
+        .mod-lbl {{ display: block; font-size: 0.65rem; font-weight: 700; color: #64748b; letter-spacing: 0.4px; margin-bottom: 1px; }}
         .t-min {{ color: #0284c7; font-weight: 700; }}
         .t-max {{ color: #ea580c; font-weight: 700; }}
 
         /* Pagella precisione */
-        .ieri-box {{ background: #f8fafc; padding: 12px; border-radius: 12px; font-size: 0.9rem; margin-bottom: 12px; border-left: 4px solid #3b82f6; }}
-        .score-grid {{ display: flex; gap: 10px; flex-wrap: wrap; }}
-        .score-pill {{ flex: 1; min-width: 90px; background: #eff6ff; border-radius: 12px; padding: 10px; text-align: center; }}
-        .score-pill strong {{ display: block; font-size: 0.75rem; color: #1e40af; }}
-        .score-pill span {{ display: block; font-size: 1.3rem; font-weight: 800; color: #1d4ed8; margin: 2px 0; }}
-        .score-pill small {{ font-size: 0.75rem; color: #475569; }}
+        .ieri-box {{ background: #f8fafc; padding: 10px 12px; border-radius: 10px; font-size: 0.88rem; margin-bottom: 10px; border-left: 4px solid #3b82f6; }}
+        .score-grid {{ display: flex; gap: 8px; flex-wrap: wrap; }}
+        .score-pill {{ flex: 1; min-width: 85px; background: #eff6ff; border-radius: 10px; padding: 8px; text-align: center; }}
+        .score-pill strong {{ display: block; font-size: 0.72rem; color: #1e40af; }}
+        .score-pill span {{ display: block; font-size: 1.2rem; font-weight: 800; color: #1d4ed8; margin: 2px 0; }}
+        .score-pill small {{ font-size: 0.72rem; color: #475569; }}
     </style>
 </head>
 <body>
@@ -296,10 +296,9 @@ html_content = f"""<!DOCTYPE html>
     <div class="hero">
         <div class="hero-top">
             <div>
-                <h1>📍 {NOME_ZONA}</h1>
-                <div class="hero-time">Modelli del {datetime.now().strftime("%d/%m alle %H:%M")} • <span id="ora-live">aggiornamento...</span></div>
+                <h1>📍 {NOME_ZONA} <span class="hero-time">• Modelli {datetime.now().strftime("%d/%m %H:%M")} • <span id="ora-live">aggiornamento...</span></span></h1>
             </div>
-            <div class="live-badge">● IN TEMPO REALE</div>
+            <div class="live-badge">● LIVE</div>
         </div>
         <div class="hero-main">
             <div class="now-temp-box">
@@ -310,8 +309,7 @@ html_content = f"""<!DOCTYPE html>
                 </div>
             </div>
             <div class="hero-stats">
-                <div>Previsti oggi: <strong>Min {round(sum(tmin_oggi)/3, 1)}°</strong> / <strong>Max {round(sum(tmax_oggi)/3, 1)}°</strong></div>
-                <div>Umidità attuale: <strong><span id="umidita-live">--</span>%</strong></div>
+                <div>Oggi: <strong>Min {round(sum(tmin_oggi)/3, 1)}°</strong> / <strong>Max {round(sum(tmax_oggi)/3, 1)}°</strong> • Umidità: <strong><span id="umidita-live">--</span>%</strong></div>
                 <div class="aff-pill">{aff_testo}</div>
             </div>
         </div>
@@ -417,4 +415,4 @@ html_content = f"""<!DOCTYPE html>
 
 with open("index.html", "w", encoding="utf-8") as f:
   f.write(html_content)
-print("Dashboard friendly aggiornata con successo!")
+print("Dashboard friendly compatta aggiornata con successo!")
