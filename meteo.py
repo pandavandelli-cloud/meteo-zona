@@ -149,7 +149,7 @@ ecmwf_48 = hourly["temperature_2m_ecmwf_ifs025"][:48]
 gfs_48 = hourly["temperature_2m_gfs_seamless"][:48]
 icon_48 = hourly["temperature_2m_icon_seamless"][:48]
 
-# Costruzione righe tabella 5 giorni (Tempo + Min/Max + Pioggia)
+# Costruzione righe tabella 5 giorni
 righe_tabella = ""
 for i in range(5):
   data_g = daily["time"][i][5:]
@@ -168,7 +168,7 @@ for i in range(5):
   )
   righe_tabella += f"<tr><td><strong>{data_g}</strong></td><td>{tempo_ecmwf}</td><td>{ecmwf_str}</td><td>{gfs_str}</td><td>{icon_str}</td><td>{pioggia_m} mm</td></tr>"
 
-# 5. GENERAZIONE PAGINA WEB (index.html) CON AGGIORNAMENTO LIVE ALL'APERTURA
+# 5. GENERAZIONE PAGINA WEB (index.html)
 html_content = f"""<!DOCTYPE html>
 <html lang="it">
 <head>
@@ -190,8 +190,9 @@ html_content = f"""<!DOCTYPE html>
         .live-tag {{ display: inline-block; background: #dbeafe; color: #1d4ed8; font-size: 0.75rem; font-weight: bold; padding: 2px 8px; border-radius: 6px; vertical-align: middle; margin-left: 6px; }}
         .badge {{ padding: 8px 14px; border-radius: 999px; color: white; font-weight: bold; font-size: 0.9rem; background: {aff_colore}; }}
         .table-days {{ width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.88rem; min-width: 500px; }}
-        .table-days th, .table-days td {{ padding: 10px 6px; text-align: center; border-bottom: 1px solid #f1f5f9; }}
+        .table-days th, .table-days td {{ padding: 9px 6px; text-align: center; border-bottom: 1px solid #f1f5f9; }}
         .table-days th {{ background: #f8fafc; color: #475569; }}
+        .hourly-box {{ max-height: 360px; overflow-y: auto; border: 1px solid #f1f5f9; border-radius: 8px; }}
         .pagella {{ background: #f8fafc; border-left: 4px solid #3b82f6; padding: 12px; border-radius: 8px; font-size: 0.95rem; }}
     </style>
 </head>
@@ -225,7 +226,27 @@ html_content = f"""<!DOCTYPE html>
     </div>
 
     <div class="card">
-        <h2>CONFRONTO TEMPERATURE (Prossime 48 ore)</h2>
+        <h2>PREVISIONI ORARIE (Prossime 24 ore da adesso) <span class="live-tag">LIVE</span></h2>
+        <div class="hourly-box">
+            <table class="table-days" style="min-width: 420px; margin-top: 0;">
+                <thead style="position: sticky; top: 0; background: #f8fafc;">
+                    <tr>
+                        <th>Ora</th>
+                        <th>Tempo</th>
+                        <th>Temp.</th>
+                        <th>Pioggia</th>
+                        <th>Vento</th>
+                    </tr>
+                </thead>
+                <tbody id="tabella-oraria">
+                    <tr><td colspan="5">Caricamento previsioni orarie...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>CONFRONTO TEMPERATURE MODELLI (Prossime 48 ore)</h2>
         <canvas id="meteoChart" height="140"></canvas>
     </div>
 
@@ -239,10 +260,9 @@ html_content = f"""<!DOCTYPE html>
 </div>
 
 <script>
-    // 1. AGGIORNAMENTO IN TEMPO REALE ALL'APERTURA DELLA PAGINA
     function descriviCodiceLive(c) {{
         if (c === 0) return "☀️ Sereno";
-        if (c === 1 || c === 2) return "⛅ Poco nuvoloso";
+        if (c === 1 || c === 2) return "⛅ Poco nuv.";
         if (c === 3) return "☁️ Nuvoloso";
         if (c === 45 || c === 48) return "🌫️ Nebbia";
         if ([51,53,55,56,57].includes(c)) return "🌦️ Pioviggine";
@@ -252,21 +272,40 @@ html_content = f"""<!DOCTYPE html>
         return "🌤️ Variabile";
     }}
 
-    fetch("https://api.open-meteo.com/v1/forecast?latitude={LAT}&longitude={LON}&current=temperature_2m,relative_humidity_2m,weather_code&timezone=Europe%2FRome")
+    // Scarica situazione attuale + prossime 48 ore per estrarre le 24 ore da adesso
+    fetch("https://api.open-meteo.com/v1/forecast?latitude={LAT}&longitude={LON}&current=temperature_2m,relative_humidity_2m,weather_code&hourly=temperature_2m,precipitation,weather_code,wind_speed_10m&forecast_days=2&timezone=Europe%2FRome")
         .then(r => r.json())
         .then(data => {{
+            // 1. Aggiorna riquadro LIVE
             const cur = data.current;
             document.getElementById("temp-live").textContent = cur.temperature_2m + "°C";
             document.getElementById("tempo-live").textContent = "(" + descriviCodiceLive(cur.weather_code) + ")";
             document.getElementById("umidita-live").textContent = cur.relative_humidity_2m;
-            const ora = cur.time.split("T")[1];
-            document.getElementById("ora-live").textContent = "rilevato alle " + ora;
+            const oraAttualeStr = cur.time.slice(0, 13); // es. "2026-11-27T13"
+            document.getElementById("ora-live").textContent = "rilevato alle " + cur.time.split("T")[1];
+
+            // 2. Popola tabella oraria per le prossime 24 ore a partire da adesso
+            const h = data.hourly;
+            let idxStart = h.time.findIndex(t => t.startsWith(oraAttualeStr));
+            if (idxStart === -1) idxStart = 0;
+
+            let righeHtml = "";
+            for (let i = idxStart; i < Math.min(idxStart + 24, h.time.length); i++) {{
+                const giornoOra = h.time[i].slice(8, 10) + "/" + h.time[i].slice(5, 7) + " " + h.time[i].slice(11, 16);
+                const tempo = descriviCodiceLive(h.weather_code[i]);
+                const temp = h.temperature_2m[i] + "°C";
+                const pioggia = h.precipitation[i] + " mm";
+                const vento = Math.round(h.wind_speed_10m[i]) + " km/h";
+                righeHtml += `<tr><td><strong>${{giornoOra}}</strong></td><td>${{tempo}}</td><td>${{temp}}</td><td>${{pioggia}}</td><td>${{vento}}</td></tr>`;
+            }}
+            document.getElementById("tabella-oraria").innerHTML = righeHtml;
         }})
         .catch(() => {{
             document.getElementById("ora-live").textContent = "non disponibile";
+            document.getElementById("tabella-oraria").innerHTML = "<tr><td colspan='5'>Errore nel caricamento dati orari.</td></tr>";
         }});
 
-    // 2. GRAFICO CONFRONTO MODELLI
+    // Grafico confronto modelli
     const ctx = document.getElementById('meteoChart').getContext('2d');
     new Chart(ctx, {{
         type: 'line',
