@@ -10,12 +10,37 @@ LAT = 44.598
 LON = 10.695
 STORICO_FILE = "storico_meteo.csv"
 
+
+def descrivi_meteo(codice):
+  if codice is None or pd.isna(codice):
+    return "—"
+  c = int(codice)
+  if c == 0:
+    return "☀️ Sereno"
+  if c in [1, 2]:
+    return "⛅ Poco nuv."
+  if c == 3:
+    return "☁️ Nuvoloso"
+  if c in [45, 48]:
+    return "🌫️ Nebbia"
+  if c in [51, 53, 55, 56, 57]:
+    return "🌦️ Pioviggine"
+  if c in [61, 63, 65, 66, 67, 80, 81, 82]:
+    return "🌧️ Pioggia"
+  if c in [71, 73, 75, 77, 85, 86]:
+    return "❄️ Neve"
+  if c in [95, 96, 99]:
+    return "⛈️ Temporale"
+  return "🌤️ Variabile"
+
+
 # 1. SCARICA PREVISIONI (Oggi + 4 giorni = 5 giorni totali)
 url_forecast = "https://api.open-meteo.com/v1/forecast"
 params_forecast = {
     "latitude": LAT,
     "longitude": LON,
     "daily": [
+        "weather_code",
         "temperature_2m_max",
         "temperature_2m_min",
         "precipitation_sum",
@@ -25,7 +50,7 @@ params_forecast = {
     "timezone": "Europe/Rome",
     "forecast_days": 5,
 }
-res_f = requests.get(url_forecast, params=params_forecast).json()
+res_f = requests.get(url_forecast, params=params_forecast, timeout=15).json()
 daily = res_f["daily"]
 hourly = res_f["hourly"]
 
@@ -47,7 +72,7 @@ params_past = {
     "models": "best_match",
     "timezone": "Europe/Rome",
 }
-res_p = requests.get(url_past, params=params_past).json()
+res_p = requests.get(url_past, params=params_past, timeout=15).json()
 idx_ieri = res_p["daily"]["time"].index(ieri)
 reale_tmax = res_p["daily"]["temperature_2m_max"][idx_ieri]
 reale_tmin = res_p["daily"]["temperature_2m_min"][idx_ieri]
@@ -124,10 +149,11 @@ ecmwf_48 = hourly["temperature_2m_ecmwf_ifs025"][:48]
 gfs_48 = hourly["temperature_2m_gfs_seamless"][:48]
 icon_48 = hourly["temperature_2m_icon_seamless"][:48]
 
-# Costruzione righe tabella 5 giorni (Min / Max)
+# Costruzione righe tabella 5 giorni (Tempo + Min/Max + Pioggia)
 righe_tabella = ""
 for i in range(5):
   data_g = daily["time"][i][5:]
+  tempo_ecmwf = descrivi_meteo(daily["weather_code_ecmwf_ifs025"][i])
   ecmwf_str = f"{daily['temperature_2m_min_ecmwf_ifs025'][i]}° / {daily['temperature_2m_max_ecmwf_ifs025'][i]}°"
   gfs_str = f"{daily['temperature_2m_min_gfs_seamless'][i]}° / {daily['temperature_2m_max_gfs_seamless'][i]}°"
   icon_str = f"{daily['temperature_2m_min_icon_seamless'][i]}° / {daily['temperature_2m_max_icon_seamless'][i]}°"
@@ -140,9 +166,11 @@ for i in range(5):
       / 3,
       1,
   )
-  righe_tabella += f"<tr><td><strong>{data_g}</strong></td><td>{ecmwf_str}</td><td>{gfs_str}</td><td>{icon_str}</td><td>{pioggia_m} mm</td></tr>"
+  righe_tabella += f"<tr><td><strong>{data_g}</strong></td><td>{tempo_ecmwf}</td><td>{ecmwf_str}</td><td>{gfs_str}</td><td>{icon_str}</td><td>{pioggia_m} mm</td></tr>"
 
 # 5. GENERAZIONE PAGINA WEB (index.html)
+tempo_oggi_badge = descrivi_meteo(daily["weather_code_ecmwf_ifs025"][0])
+
 html_content = f"""<!DOCTYPE html>
 <html lang="it">
 <head>
@@ -152,16 +180,16 @@ html_content = f"""<!DOCTYPE html>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f1f5f9; color: #1e293b; margin: 0; padding: 16px; }}
-        .container {{ max-width: 800px; margin: 0 auto; }}
+        .container {{ max-width: 850px; margin: 0 auto; }}
         .header {{ text-align: center; margin-bottom: 20px; }}
         .header h1 {{ margin: 0; font-size: 1.5rem; color: #0f172a; }}
         .header p {{ margin: 4px 0 0; font-size: 0.85rem; color: #64748b; }}
         .card {{ background: white; border-radius: 16px; padding: 20px; margin-bottom: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow-x: auto; }}
         .card h2 {{ margin-top: 0; font-size: 1.1rem; color: #334155; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }}
         .oggi-grid {{ display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 12px; }}
-        .temp-big {{ font-size: 1.8rem; font-weight: bold; color: #0f172a; }}
+        .temp-big {{ font-size: 1.5rem; font-weight: bold; color: #0f172a; }}
         .badge {{ padding: 8px 14px; border-radius: 999px; color: white; font-weight: bold; font-size: 0.9rem; background: {aff_colore}; }}
-        .table-days {{ width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.88rem; min-width: 450px; }}
+        .table-days {{ width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.88rem; min-width: 500px; }}
         .table-days th, .table-days td {{ padding: 10px 6px; text-align: center; border-bottom: 1px solid #f1f5f9; }}
         .table-days th {{ background: #f8fafc; color: #475569; }}
         .pagella {{ background: #f8fafc; border-left: 4px solid #3b82f6; padding: 12px; border-radius: 8px; font-size: 0.95rem; }}
@@ -175,13 +203,20 @@ html_content = f"""<!DOCTYPE html>
     </div>
 
     <div class="card">
-        <h2>PREVISIONE OGGI E PROSSIMI 4 GIORNI (Min / Max)</h2>
+        <h2>PREVISIONE OGGI E PROSSIMI 4 GIORNI</h2>
         <div class="oggi-grid">
-            <div class="temp-big">Oggi: {round(sum(tmin_oggi)/3, 1)}° / {round(sum(tmax_oggi)/3, 1)}°C</div>
+            <div class="temp-big">Oggi: {tempo_oggi_badge} | {round(sum(tmin_oggi)/3, 1)}° / {round(sum(tmax_oggi)/3, 1)}°C</div>
             <div class="badge">Affidabilità: {aff_testo}</div>
         </div>
         <table class="table-days">
-            <tr><th>Giorno</th><th>ECMWF (Min/Max)</th><th>GFS (Min/Max)</th><th>ICON (Min/Max)</th><th>Pioggia Media</th></tr>
+            <tr>
+                <th>Giorno</th>
+                <th>Tempo</th>
+                <th>ECMWF (Min/Max)</th>
+                <th>GFS (Min/Max)</th>
+                <th>ICON (Min/Max)</th>
+                <th>Pioggia Media</th>
+            </tr>
             {righe_tabella}
         </table>
     </div>
