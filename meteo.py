@@ -168,9 +168,7 @@ for i in range(5):
   )
   righe_tabella += f"<tr><td><strong>{data_g}</strong></td><td>{tempo_ecmwf}</td><td>{ecmwf_str}</td><td>{gfs_str}</td><td>{icon_str}</td><td>{pioggia_m} mm</td></tr>"
 
-# 5. GENERAZIONE PAGINA WEB (index.html)
-tempo_oggi_badge = descrivi_meteo(daily["weather_code_ecmwf_ifs025"][0])
-
+# 5. GENERAZIONE PAGINA WEB (index.html) CON AGGIORNAMENTO LIVE ALL'APERTURA
 html_content = f"""<!DOCTYPE html>
 <html lang="it">
 <head>
@@ -186,8 +184,10 @@ html_content = f"""<!DOCTYPE html>
         .header p {{ margin: 4px 0 0; font-size: 0.85rem; color: #64748b; }}
         .card {{ background: white; border-radius: 16px; padding: 20px; margin-bottom: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow-x: auto; }}
         .card h2 {{ margin-top: 0; font-size: 1.1rem; color: #334155; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }}
-        .oggi-grid {{ display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 12px; }}
-        .temp-big {{ font-size: 1.5rem; font-weight: bold; color: #0f172a; }}
+        .oggi-grid {{ display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 14px; }}
+        .temp-reale {{ font-size: 2rem; font-weight: bold; color: #0f172a; }}
+        .temp-sub {{ font-size: 0.95rem; color: #475569; margin-top: 4px; }}
+        .live-tag {{ display: inline-block; background: #dbeafe; color: #1d4ed8; font-size: 0.75rem; font-weight: bold; padding: 2px 8px; border-radius: 6px; vertical-align: middle; margin-left: 6px; }}
         .badge {{ padding: 8px 14px; border-radius: 999px; color: white; font-weight: bold; font-size: 0.9rem; background: {aff_colore}; }}
         .table-days {{ width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.88rem; min-width: 500px; }}
         .table-days th, .table-days td {{ padding: 10px 6px; text-align: center; border-bottom: 1px solid #f1f5f9; }}
@@ -199,13 +199,16 @@ html_content = f"""<!DOCTYPE html>
 <div class="container">
     <div class="header">
         <h1>METEO {NOME_ZONA.upper()}</h1>
-        <p>Aggiornato il {datetime.now().strftime("%d/%m/%Y alle %H:%M")}</p>
+        <p>Modelli aggiornati il {datetime.now().strftime("%d/%m/%Y alle %H:%M")} | Dato attuale: <span id="ora-live">caricamento...</span></p>
     </div>
 
     <div class="card">
-        <h2>PREVISIONE OGGI E PROSSIMI 4 GIORNI</h2>
+        <h2>SITUAZIONE IN TEMPO REALE E PROSSIMI 4 GIORNI</h2>
         <div class="oggi-grid">
-            <div class="temp-big">Oggi: {tempo_oggi_badge} | {round(sum(tmin_oggi)/3, 1)}° / {round(sum(tmax_oggi)/3, 1)}°C</div>
+            <div>
+                <div class="temp-reale"><span id="temp-live">--°C</span> <span id="tempo-live">...</span> <span class="live-tag">LIVE</span></div>
+                <div class="temp-sub">Estremi previsti oggi: Min {round(sum(tmin_oggi)/3, 1)}°C / Max {round(sum(tmax_oggi)/3, 1)}°C | Umidità attuale: <span id="umidita-live">--</span>%</div>
+            </div>
             <div class="badge">Affidabilità: {aff_testo}</div>
         </div>
         <table class="table-days">
@@ -236,6 +239,34 @@ html_content = f"""<!DOCTYPE html>
 </div>
 
 <script>
+    // 1. AGGIORNAMENTO IN TEMPO REALE ALL'APERTURA DELLA PAGINA
+    function descriviCodiceLive(c) {{
+        if (c === 0) return "☀️ Sereno";
+        if (c === 1 || c === 2) return "⛅ Poco nuvoloso";
+        if (c === 3) return "☁️ Nuvoloso";
+        if (c === 45 || c === 48) return "🌫️ Nebbia";
+        if ([51,53,55,56,57].includes(c)) return "🌦️ Pioviggine";
+        if ([61,63,65,66,67,80,81,82].includes(c)) return "🌧️ Pioggia";
+        if ([71,73,75,77,85,86].includes(c)) return "❄️ Neve";
+        if ([95,96,99].includes(c)) return "⛈️ Temporale";
+        return "🌤️ Variabile";
+    }}
+
+    fetch("https://api.open-meteo.com/v1/forecast?latitude={LAT}&longitude={LON}&current=temperature_2m,relative_humidity_2m,weather_code&timezone=Europe%2FRome")
+        .then(r => r.json())
+        .then(data => {{
+            const cur = data.current;
+            document.getElementById("temp-live").textContent = cur.temperature_2m + "°C";
+            document.getElementById("tempo-live").textContent = "(" + descriviCodiceLive(cur.weather_code) + ")";
+            document.getElementById("umidita-live").textContent = cur.relative_humidity_2m;
+            const ora = cur.time.split("T")[1];
+            document.getElementById("ora-live").textContent = "rilevato alle " + ora;
+        }})
+        .catch(() => {{
+            document.getElementById("ora-live").textContent = "non disponibile";
+        }});
+
+    // 2. GRAFICO CONFRONTO MODELLI
     const ctx = document.getElementById('meteoChart').getContext('2d');
     new Chart(ctx, {{
         type: 'line',
