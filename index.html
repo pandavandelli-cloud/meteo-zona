@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meteo Scandiano & Zona</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f1f5f9; color: #1e293b; margin: 0; padding: 16px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 20px; }
+        .header h1 { margin: 0; font-size: 1.5rem; color: #0f172a; }
+        .header p { margin: 4px 0 0; font-size: 0.85rem; color: #64748b; }
+        .card { background: white; border-radius: 16px; padding: 20px; margin-bottom: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .card h2 { margin-top: 0; font-size: 1.1rem; color: #334155; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
+        .oggi-grid { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+        .temp-big { font-size: 2rem; font-weight: bold; color: #0f172a; }
+        .badge { padding: 8px 14px; border-radius: 999px; color: white; font-weight: bold; font-size: 0.9rem; background: #22c55e; }
+        .table-days { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
+        .table-days th, .table-days td { padding: 8px; text-align: center; border-bottom: 1px solid #f1f5f9; }
+        .pagella { background: #f8fafc; border-left: 4px solid #3b82f6; padding: 12px; border-radius: 8px; font-size: 0.95rem; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>METEO SCANDIANO & ZONA</h1>
+        <p>Aggiornato il 27/11/2026 alle 10:36</p>
+    </div>
+
+    <div class="card">
+        <h2>PREVISIONE DI OGGI</h2>
+        <div class="oggi-grid">
+            <div class="temp-big">Min 6.4°C / Max 9.3°C</div>
+            <div class="badge">Affidabilità: ALTA (Modelli concordi)</div>
+        </div>
+        <table class="table-days">
+            <tr><th>Giorno</th><th>ECMWF (Max)</th><th>GFS (Max)</th><th>ICON (Max)</th><th>Pioggia Media</th></tr>
+            <tr><td>11-27</td><td>9.2°</td><td>9.5°</td><td>9.3°</td><td>0.4 mm</td></tr><tr><td>11-28</td><td>8.0°</td><td>9.5°</td><td>9.1°</td><td>0.0 mm</td></tr><tr><td>11-29</td><td>8.5°</td><td>8.7°</td><td>8.8°</td><td>0.0 mm</td></tr><tr><td>11-30</td><td>6.7°</td><td>7.4°</td><td>6.4°</td><td>0.0 mm</td></tr>
+        </table>
+    </div>
+
+    <div class="card">
+        <h2>CONFRONTO TEMPERATURE (Prossime 48 ore)</h2>
+        <canvas id="meteoChart" height="140"></canvas>
+    </div>
+
+    <div class="card">
+        <h2>PAGELLA DI IERI & PRECISIONE STORICA</h2>
+        <div class="pagella">
+            <p style="margin:0 0 8px;"><strong>Consuntivo reale di ieri (11-26):</strong> Min 7.5°C / Max 9.6°C | Pioggia: 7.7 mm</p>
+            <p style="margin:0; color:#1d4ed8; font-weight:bold;">Raccolta dati avviata oggi. La classifica apparirà da domani!</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const ctx = document.getElementById('meteoChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ["00:00", "01:00", "02:00", "03:00", "04:00", "05:00", "06:00", "07:00", "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "00:00", "01:00", "02:00", "03:00", "04:00", "05:00", "06:00", "07:00", "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00"],
+            datasets: [
+                { label: 'ECMWF', data: [8.0, 8.0, 8.0, 8.0, 8.0, 7.9, 7.7, 7.6, 7.7, 7.8, 8.0, 8.4, 8.8, 9.0, 9.0, 8.8, 8.4, 7.6, 6.6, 5.9, 5.7, 5.7, 5.7, 5.6, 5.4, 5.3, 5.1, 4.9, 4.7, 4.4, 4.0, 4.0, 4.6, 5.6, 6.5, 7.2, 7.8, 8.1, 7.9, 7.4, 6.6, 5.2, 3.4, 2.2, 2.1, 2.5, 2.8, 2.9], borderColor: '#2563eb', tension: 0.3, pointRadius: 1 },
+                { label: 'GFS', data: [8.0, 7.9, 7.9, 7.9, 7.8, 7.6, 7.5, 7.6, 7.6, 8.1, 8.8, 9.4, 9.4, 9.5, 9.5, 9.3, 8.6, 7.9, 7.9, 8.0, 7.9, 7.9, 7.9, 7.8, 7.6, 7.5, 7.5, 7.4, 7.0, 6.9, 6.0, 5.4, 5.3, 6.7, 7.9, 8.6, 9.1, 9.4, 9.5, 9.3, 8.1, 6.7, 6.3, 5.9, 5.5, 5.2, 5.0, 4.8], borderColor: '#dc2626', tension: 0.3, pointRadius: 1 },
+                { label: 'ICON', data: [8.3, 8.2, 8.1, 8.1, 7.9, 7.6, 7.3, 7.3, 7.9, 8.0, 8.2, 8.5, 8.8, 8.9, 9.3, 9.2, 9.0, 8.5, 8.0, 7.7, 7.4, 7.3, 7.1, 6.7, 6.8, 7.0, 6.9, 6.5, 6.6, 6.4, 6.2, 6.2, 6.3, 6.6, 7.1, 7.8, 8.2, 8.7, 9.0, 8.9, 8.5, 7.3, 5.8, 3.8, 3.0, 2.4, 1.9, 2.0], borderColor: '#16a34a', tension: 0.3, pointRadius: 1 }
+            ]
+        },
+        options: { responsive: true, interaction: { mode: 'index', intersect: false } }
+    });
+</script>
+</body>
+</html>
