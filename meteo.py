@@ -22,18 +22,33 @@ GIORNI_SETTIMANA = [
 ]
 
 
-def scarica_dati_sicuri(url, params, tentativi=4, timeout=45):
-  """Esegue la richiesta con ripetizione automatica in caso di server lenti."""
-  for i in range(tentativi):
+def scarica_modello(modello):
+  """Scarica un singolo modello alla volta (molto più veloce e stabile)."""
+  url = "https://api.open-meteo.com/v1/forecast"
+  params = {
+      "latitude": LAT,
+      "longitude": LON,
+      "daily": [
+          "weather_code",
+          "temperature_2m_max",
+          "temperature_2m_min",
+          "precipitation_sum",
+      ],
+      "hourly": ["temperature_2m"],
+      "models": modello,
+      "timezone": "Europe/Rome",
+      "forecast_days": 5,
+  }
+  for i in range(3):
     try:
-      r = requests.get(url, params=params, timeout=timeout)
+      r = requests.get(url, params=params, timeout=25)
       r.raise_for_status()
       return r.json()
     except requests.exceptions.RequestException as e:
-      print(f"Tentativo {i + 1}/{tentativi} non riuscito ({e}). Riprovo...")
-      if i == tentativi - 1:
+      print(f"Modello {modello} - tentativo {i + 1}/3 fallito ({e})")
+      if i == 2:
         raise
-      time.sleep(5 * (i + 1))
+      time.sleep(3)
 
 
 def formatta_giorno(data_str, indice):
@@ -70,25 +85,16 @@ def info_meteo(codice):
   return "🌤️", "Variabile"
 
 
-# 1. SCARICA PREVISIONI (Oggi + 4 giorni = 5 giorni totali)
-url_forecast = "https://api.open-meteo.com/v1/forecast"
-params_forecast = {
-    "latitude": LAT,
-    "longitude": LON,
-    "daily": [
-        "weather_code",
-        "temperature_2m_max",
-        "temperature_2m_min",
-        "precipitation_sum",
-    ],
-    "hourly": ["temperature_2m", "precipitation"],
-    "models": ["ecmwf_ifs025", "gfs_seamless", "icon_seamless"],
-    "timezone": "Europe/Rome",
-    "forecast_days": 5,
-}
-res_f = scarica_dati_sicuri(url_forecast, params_forecast)
-daily = res_f["daily"]
-hourly = res_f["hourly"]
+# 1. SCARICA I 3 MODELLI SEPARATAMENTE (evita blocchi del server)
+res_ecmwf = scarica_modello("ecmwf_ifs025")
+time.sleep(1)
+res_gfs = scarica_modello("gfs_seamless")
+time.sleep(1)
+res_icon = scarica_modello("icon_seamless")
+
+d_ecmwf = res_ecmwf["daily"]
+d_gfs = res_gfs["daily"]
+d_icon = res_icon["daily"]
 
 # 2. SCARICA DATI REALI DI IERI
 ieri = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
@@ -108,7 +114,7 @@ params_past = {
     "models": "best_match",
     "timezone": "Europe/Rome",
 }
-res_p = scarica_dati_sicuri(url_past, params_past)
+res_p = requests.get(url_past, params=params_past, timeout=25).json()
 idx_ieri = res_p["daily"]["time"].index(ieri)
 reale_tmax = res_p["daily"]["temperature_2m_max"][idx_ieri]
 reale_tmin = res_p["daily"]["temperature_2m_min"][idx_ieri]
@@ -117,13 +123,13 @@ reale_pioggia = res_p["daily"]["precipitation_sum"][idx_ieri]
 # 3. GESTIONE ARCHIVIO STORICO E PRECISIONE
 nuova_riga = {
     "data_previsione": oggi,
-    "target_data": daily["time"][1],
-    "ecmwf_tmax": daily["temperature_2m_max_ecmwf_ifs025"][1],
-    "gfs_tmax": daily["temperature_2m_max_gfs_seamless"][1],
-    "icon_tmax": daily["temperature_2m_max_icon_seamless"][1],
-    "ecmwf_pioggia": daily["precipitation_sum_ecmwf_ifs025"][1],
-    "gfs_pioggia": daily["precipitation_sum_gfs_seamless"][1],
-    "icon_pioggia": daily["precipitation_sum_icon_seamless"][1],
+    "target_data": d_ecmwf["time"][1],
+    "ecmwf_tmax": d_ecmwf["temperature_2m_max"][1],
+    "gfs_tmax": d_gfs["temperature_2m_max"][1],
+    "icon_tmax": d_icon["temperature_2m_max"][1],
+    "ecmwf_pioggia": d_ecmwf["precipitation_sum"][1],
+    "gfs_pioggia": d_gfs["precipitation_sum"][1],
+    "icon_pioggia": d_icon["precipitation_sum"][1],
     "reale_tmax": None,
 }
 
@@ -161,14 +167,14 @@ else:
 
 # 4. AFFIDABILITÀ ODIERNA
 tmax_oggi = [
-    daily["temperature_2m_max_ecmwf_ifs025"][0],
-    daily["temperature_2m_max_gfs_seamless"][0],
-    daily["temperature_2m_max_icon_seamless"][0],
+    d_ecmwf["temperature_2m_max"][0],
+    d_gfs["temperature_2m_max"][0],
+    d_icon["temperature_2m_max"][0],
 ]
 tmin_oggi = [
-    daily["temperature_2m_min_ecmwf_ifs025"][0],
-    daily["temperature_2m_min_gfs_seamless"][0],
-    daily["temperature_2m_min_icon_seamless"][0],
+    d_ecmwf["temperature_2m_min"][0],
+    d_gfs["temperature_2m_min"][0],
+    d_icon["temperature_2m_min"][0],
 ]
 spread = max(tmax_oggi) - min(tmax_oggi)
 
@@ -182,35 +188,32 @@ else:
   aff_testo = "🔴 Bassa affidabilità (Modelli distanti)"
   aff_bg = "rgba(239, 68, 68, 0.3)"
 
-ore_48 = [t.split("T")[1] for t in hourly["time"][:48]]
-ecmwf_48 = hourly["temperature_2m_ecmwf_ifs025"][:48]
-gfs_48 = hourly["temperature_2m_gfs_seamless"][:48]
-icon_48 = hourly["temperature_2m_icon_seamless"][:48]
+ore_48 = [t.split("T")[1] for t in res_ecmwf["hourly"]["time"][:48]]
+ecmwf_48 = res_ecmwf["hourly"]["temperature_2m"][:48]
+gfs_48 = res_gfs["hourly"]["temperature_2m"][:48]
+icon_48 = res_icon["hourly"]["temperature_2m"][:48]
 
 # Costruzione schede 5 giorni
 cards_giorni = ""
 for i in range(5):
-  titolo_g = formatta_giorno(daily["time"][i], i)
-  icona_g, desc_g = info_meteo(daily["weather_code_ecmwf_ifs025"][i])
+  titolo_g = formatta_giorno(d_ecmwf["time"][i], i)
+  icona_g, desc_g = info_meteo(d_ecmwf["weather_code"][i])
 
   e_min, e_max = (
-      daily["temperature_2m_min_ecmwf_ifs025"][i],
-      daily["temperature_2m_max_ecmwf_ifs025"][i],
+      d_ecmwf["temperature_2m_min"][i],
+      d_ecmwf["temperature_2m_max"][i],
   )
-  g_min, g_max = (
-      daily["temperature_2m_min_gfs_seamless"][i],
-      daily["temperature_2m_max_gfs_seamless"][i],
-  )
+  g_min, g_max = d_gfs["temperature_2m_min"][i], d_gfs["temperature_2m_max"][i]
   i_min, i_max = (
-      daily["temperature_2m_min_icon_seamless"][i],
-      daily["temperature_2m_max_icon_seamless"][i],
+      d_icon["temperature_2m_min"][i],
+      d_icon["temperature_2m_max"][i],
   )
 
   pioggia_m = round(
       (
-          daily["precipitation_sum_ecmwf_ifs025"][i]
-          + daily["precipitation_sum_gfs_seamless"][i]
-          + daily["precipitation_sum_icon_seamless"][i]
+          d_ecmwf["precipitation_sum"][i]
+          + d_gfs["precipitation_sum"][i]
+          + d_icon["precipitation_sum"][i]
       )
       / 3,
       1,
@@ -240,7 +243,7 @@ for i in range(5):
 
 icona_app_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%231e3a8a'/%3E%3Ccircle cx='70' cy='72' r='30' fill='%23facc15'/%3E%3Cpath d='M125 125H62c-15 0-27-11-27-26 0-13 10-24 23-26 5-16 20-27 37-27 21 0 38 17 38 38 0 2 0 4-1 6 11 3 19 13 19 25 0 14-12 26-26 26z' fill='%23ffffff'/%3E%3C/svg%3E"
 
-# 5. GENERAZIONE PAGINA WEB (index.html) CON SUPPORTO WEB APP
+# 5. GENERAZIONE PAGINA WEB (index.html)
 html_content = f"""<!DOCTYPE html>
 <html lang="it">
 <head>
