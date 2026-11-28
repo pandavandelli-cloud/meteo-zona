@@ -340,4 +340,103 @@ html_content = f"""<!DOCTYPE html>
     </div>
 
     <div class="card">
-        <h2>⏱️ PRO
+        <h2>⏱️ PROSSIME 24 ORE <span style="font-size:0.75rem; font-weight:normal; color:#64748b;">(scorri →)</span></h2>
+        <div class="hourly-scroll" id="fascia-oraria">
+            <div style="padding:10px; color:#64748b; font-size:0.9rem;">Caricamento ore...</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>📅 PREVISIONE 5 GIORNI <span style="font-size:0.75rem; font-weight:normal; color:#64748b;">(Min / Max per modello)</span></h2>
+        {cards_giorni}
+    </div>
+
+    <div class="card">
+        <h2>📈 CONFRONTO TEMPERATURE (48 ORE)</h2>
+        <canvas id="meteoChart" height="140"></canvas>
+    </div>
+
+    <div class="card">
+        <h2>🏆 CHI CI HA PRESO DI PIÙ? (Storico Zona)</h2>
+        <div class="ieri-box">
+            <strong>Consuntivo reale di ieri ({ieri[8:10]}/{ieri[5:7]}):</strong> Min <span class="t-min">{reale_tmin}°C</span> / Max <span class="t-max">{reale_tmax}°C</span> • Pioggia: <strong>{reale_pioggia} mm</strong>
+        </div>
+        {testo_classifica}
+    </div>
+
+</div>
+
+<script>
+    function getMeteoInfo(c) {{
+        if (c === 0) return {{ icon: "☀️", text: "Sereno" }};
+        if (c === 1 || c === 2) return {{ icon: "⛅", text: "Poco nuvoloso" }};
+        if (c === 3) return {{ icon: "☁️", text: "Nuvoloso" }};
+        if (c === 45 || c === 48) return {{ icon: "🌫️", text: "Nebbia" }};
+        if ([51,53,55,56,57].includes(c)) return {{ icon: "🌦️", text: "Pioviggine" }};
+        if ([61,63,65,66,67,80,81,82].includes(c)) return {{ icon: "🌧️", text: "Pioggia" }};
+        if ([71,73,75,77,85,86].includes(c)) return {{ icon: "❄️", text: "Neve" }};
+        if ([95,96,99].includes(c)) return {{ icon: "⛈️", text: "Temporale" }};
+        return {{ icon: "🌤️", text: "Variabile" }};
+    }}
+
+    fetch("https://api.open-meteo.com/v1/forecast?latitude={LAT}&longitude={LON}&current=temperature_2m,relative_humidity_2m,weather_code&hourly=temperature_2m,precipitation,weather_code,wind_speed_10m&forecast_days=2&timezone=Europe%2FRome")
+        .then(r => r.json())
+        .then(data => {{
+            const cur = data.current;
+            const infoCur = getMeteoInfo(cur.weather_code);
+            document.getElementById("temp-live").textContent = Math.round(cur.temperature_2m * 10) / 10 + "°";
+            document.getElementById("icon-live").textContent = infoCur.icon;
+            document.getElementById("tempo-live").textContent = infoCur.text;
+            document.getElementById("umidita-live").textContent = cur.relative_humidity_2m;
+            document.getElementById("ora-live").textContent = "rilevato alle " + cur.time.split("T")[1];
+
+            const h = data.hourly;
+            const oraAttualeStr = cur.time.slice(0, 13);
+            let idxStart = h.time.findIndex(t => t.startsWith(oraAttualeStr));
+            if (idxStart === -1) idxStart = 0;
+
+            let cardsHtml = "";
+            for (let i = idxStart; i < Math.min(idxStart + 24, h.time.length); i++) {{
+                const ora = h.time[i].slice(11, 16);
+                const giorno = (i > idxStart && ora === "00:00") ? h.time[i].slice(8, 10) + "/" + h.time[i].slice(5, 7) : ora;
+                const infoH = getMeteoInfo(h.weather_code[i]);
+                const temp = Math.round(h.temperature_2m[i]) + "°";
+                const pioggia = h.precipitation[i] > 0 ? "💧 " + h.precipitation[i] + "mm" : "";
+                const vento = Math.round(h.wind_speed_10m[i]) + " km/h";
+
+                cardsHtml += `
+                <div class="hour-card">
+                    <div class="hour-time">${{giorno}}</div>
+                    <div class="hour-icon">${{infoH.icon}}</div>
+                    <div class="hour-temp">${{temp}}</div>
+                    <div class="hour-rain">${{pioggia}}</div>
+                    <div class="hour-wind">💨 ${{vento}}</div>
+                </div>`;
+            }}
+            document.getElementById("fascia-oraria").innerHTML = cardsHtml;
+        }})
+        .catch(() => {{
+            document.getElementById("ora-live").textContent = "dato live non raggiungibile";
+        }});
+
+    const ctx = document.getElementById('meteoChart').getContext('2d');
+    new Chart(ctx, {{
+        type: 'line',
+        data: {{
+            labels: {json.dumps(ore_48)},
+            datasets: [
+                {{ label: 'ECMWF', data: {json.dumps(ecmwf_48)}, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)', fill: true, tension: 0.35, pointRadius: 1 }},
+                {{ label: 'GFS', data: {json.dumps(gfs_48)}, borderColor: '#ea580c', tension: 0.35, pointRadius: 1 }},
+                {{ label: 'ICON', data: {json.dumps(icon_48)}, borderColor: '#16a34a', tension: 0.35, pointRadius: 1 }}
+            ]
+        }},
+        options: {{ responsive: true, interaction: {{ mode: 'index', intersect: false }} }}
+    }});
+</script>
+</body>
+</html>
+"""
+
+with open("index.html", "w", encoding="utf-8") as f:
+  f.write(html_content)
+print("Dashboard Web App aggiornata con successo!")
